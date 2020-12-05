@@ -14,6 +14,8 @@ let productId = null;
 let productInfo = [];
 let productTag = [];
 let review = [];
+let productCategory = "";
+let errormessage = "Sorry, something went wrong. Please check and try again later.";
 
 USE_LOCAL_ENDPOINT = false;
 // set this flag to true if you want to use a local endpoint
@@ -54,7 +56,7 @@ async function getCategory() {
     redirect: 'follow'
   }
 
-  let response = await fetch(ENDPOINT_URL + '/' + username + '/categories/', request);
+  let response = await fetch(ENDPOINT_URL + '/categories', request);
   let result = await response.json();
   categories = result
 
@@ -113,6 +115,7 @@ async function getProduct(product, specific) {
     for (i = 0; i < result.products.length; i++) {
       if (result.products[i].name == product) {
         productId = result.products[i].id
+        productCategory = result.products[i].category
         return result.products[i].id
       }
     }
@@ -194,34 +197,45 @@ app.post('/', express.json(), (req, res) => {
   }
 
   async function queryCategory() {
+    postUserMessage(agent.query)
     await getCategory()
     // make all categories into a string
     categoryName = ""
     for (i = 0; i < categories.categories.length; i++) {
-      categoryName += categories.categories[i] + " "
+      categoryName += categories.categories[i] + ", "
     }
-    agent.add('The product categories we have are ' + categoryName)
+    message = 'Sure. The product categories we have are ' + categoryName + "what else would you like to know?"
+    agent.add(message)
+    postAgentMessage(message)
   }
 
   async function queryTag() {
+    postUserMessage(agent.query)
     category = agent.parameters.category
     if (await getCategoryTag(category) == 200) {
       tagName = ""
       for (i = 0; i < tags.tags.length; i++) {
-        tagName += tags.tags[i] + " "
+        tagName += tags.tags[i] + ", "
       }
-      agent.add('The tags under category ' + category + ' are ' + tagName)
+      message = 'No problem. The tags under category ' + category + ' are ' + tagName + "anything else I can help you with today?"
+      agent.add(message)
+      postAgentMessage(message)
     }
     else {
-      agent.add('Sorry, the category you inquired is not availabel.')
+      message = 'Sorry, the category you inquired is not availabel.'
+      agent.add(message)
+      postAgentMessage(message)
     }
 
   }
 
   async function queryCart() {
+    postUserMessage(agent.query)
     await getCart()
     if (cart.products.length == 0) {
-      agent.add("Your cart is empty now.")
+      message = "Your cart is empty now."
+      agent.add(message)
+      postAgentMessage(message)
     }
     else {
       let cartItem = ""
@@ -256,11 +270,14 @@ app.post('/', express.json(), (req, res) => {
             break;
         }
       }
-      agent.add("You now have " + cartItem + "you have " + hats + " hats , " + sweatshirts + " sweatshirts, " + plushes + " plushes, " + leggings + " leggings, " + tees + " tees, " + bottoms + " bottoms. Your total cost is $" + totalCost + ".")
+      message = "You now have " + cartItem + "you have " + hats + " hats , " + sweatshirts + " sweatshirts, " + plushes + " plushes, " + leggings + " leggings, " + tees + " tees, " + bottoms + " bottoms. Your total cost is $" + totalCost + ". Please feel free to review the cart and then check out."
+      agent.add(message)
+      postAgentMessage(message)
     }
   }
 
   async function queryProduct() {
+    postUserMessage(agent.query)
     product = agent.parameters.Product
     if (await getProduct(product, true) != null) {
       await getProductInfo();
@@ -268,17 +285,24 @@ app.post('/', express.json(), (req, res) => {
       for (i = 0; i < productTag.tags.length; i++) {
         tagName += productTag.tags[i] + " "
       }
-      agent.add("The price of " + product + " is $" + productInfo.price + ". The description says " + productInfo.description + " It is under the category of " + productInfo.category + "." + "Tags are: " + tagName)
+      message = "Sure. The price of " + product + " is $" + productInfo.price + ". The description says, " + productInfo.description + " It is under the category of " + productInfo.category + "." + "Tags are: " + tagName + ". Please let me know if you would like to know the reviews and the rating of this product."
+      agent.add(message)
+      postAgentMessage(message)
     }
     else {
-      agent.add("The product you asked is not available. Please try again.")
+      message = "Sorry, the product you asked is not available. Please try again."
+      agent.add(message)
+      postAgentMessage(message)
     }
   }
 
   async function queryReview() {
+    postUserMessage(agent.query)
     await getReview()
     if (review.reviews.length == 0) {
-      agent.add("Unfortunately, this product currently has no review.")
+      message = "Unfortunately, this product currently has no review."
+      agent.add(message)
+      postAgentMessage(message)
     }
     else {
       reviewText = ""
@@ -288,7 +312,9 @@ app.post('/', express.json(), (req, res) => {
         rating += review.reviews[i].stars
       }
       rating = rating / review.reviews.length
-      agent.add("The reviews of this product said, " + reviewText + ". The average rating of this product is " + rating + ' stars.')
+      message = "The reviews of this product said, " + reviewText + ". The average rating of this product is " + rating + ' stars.'
+      agent.add(message)
+      postAgentMessage(message)
     }
   }
 
@@ -308,9 +334,12 @@ app.post('/', express.json(), (req, res) => {
   }
 
   async function actionTag() {
+    postUserMessage(agent.query)
     tag = agent.parameters.tag
     await filterByTag(tag)
-    agent.add("Here are the products that have the tag " + tag)
+    message = "Ok! Here are the products that have the tag " + tag
+    agent.add(message)
+    postAgentMessage(message)
   }
 
   async function addProduct(quantity, product) {
@@ -330,19 +359,26 @@ app.post('/', express.json(), (req, res) => {
         if (response.status != 200) { added = false }
       }
       if (added) {
-        agent.add(quantity + " " + product + " has been successfully added. Please go to your cart to review and check out.")
+        message = "Sounds good! " + quantity + " " + product + " has been successfully added. Please feel free go to your cart to review and check out."
+        agent.add(message)
+        postAgentMessage(message)
       }
       else {
-        agent.add("Add product failed. Please try to log in or try again later")
+        message = "Sorry, add product failed. Please try to log in or try again later"
+        agent.add(message)
+        postAgentMessage(message)
       }
     }
     else {
       // product not exist
-      agent.add("Sorry, the product you want to add to cart is currently not available. Please try to add another product.")
+      message = "Sorry, the product you want to add to cart is currently not available. Please try to add another product."
+      agent.add(message)
+      postAgentMessage(message)
     }
   }
 
   async function actionAddCart() {
+    postUserMessage(agent.query)
     quantity = agent.parameters.quantity
     product = agent.parameters.Product
     await addProduct(quantity, product)
@@ -363,24 +399,31 @@ app.post('/', express.json(), (req, res) => {
       let response = await fetch(ENDPOINT_URL + '/application/products/' + productId, request);
       if (response.status != 200) { added = false }
       if (deleted) {
-        agent.add(product + " has been successfully deleted. Please feel free to review the rest of your cart.")
+        message = "No problem. " + product + " has been successfully deleted. Please feel free to make change to the rest of your cart."
+        agent.add(message)
+        postAgentMessage(message)
       }
       else {
-        agent.add("Delete product failed. Please try to log in or try again later")
+        agent.add(errormessage)
+        postAgentMessage(errormessage)
       }
     }
     else {
       // product not exist
-      agent.add("Sorry, the product you want to add to cart is currently not available.")
+      message = "Sorry, the product you want to add to cart is currently not available."
+      agent.add(message)
+      postAgentMessage(message)
     }
   }
 
   async function actionDeleteCart() {
+    postUserMessage(agent.query)
     product = agent.parameters.Product
     await deleteProduct(product)
   }
 
-  async function actionReview(){
+  async function actionReview() {
+    postUserMessage(agent.query)
     let request = {
       method: 'PUT',
       headers: {
@@ -388,18 +431,184 @@ app.post('/', express.json(), (req, res) => {
         "x-access-token": token,
       },
       body: JSON.stringify({
-          "back": false,
-          "dialogflowUpdated": true,
-          "page": "/" + username + "/cart-review",
+        "back": false,
+        "dialogflowUpdated": true,
+        "page": "/" + username + "/cart-review",
       }),
       redirect: 'follow'
     }
     let response = await fetch(ENDPOINT_URL + '/application', request);
-    console.log(response)
-    agent.add("Sure! Here is your cart. Please let me know at any time you would like to check out after reviewing it.")
+    if (response.status == 200) {
+      message = "Sure! Here is your cart. Please let me know at any time if you would like to confirm your cart to check out."
+      agent.add(message)
+      postAgentMessage(message)
+    }
+    else {
+      agent.add(errormessage)
+      postAgentMessage(errormessage);
+    }
   }
 
-//GET on application/products
+  async function checkout() {
+    postUserMessage(agent.query)
+    let request = {
+      method: 'PUT',
+      headers: {
+        "Content-Type": "application/json",
+        "x-access-token": token,
+      },
+      body: JSON.stringify({
+        "back": false,
+        "dialogflowUpdated": true,
+        "page": "/" + username + "/cart-confirmed",
+      }),
+      redirect: 'follow'
+    }
+    let response = await fetch(ENDPOINT_URL + '/application', request);
+    if (response.status == 200) {
+      message = "Thanks for confirming your cart! Please feel free to visit WiscShop again at any time!"
+      agent.add(message)
+      postAgentMessage(message)
+    }
+    else {
+      agent.add(errormessage)
+      postAgentMessage(errormessage);
+    }
+  }
+
+  function route(route) {
+    switch (route) {
+      case "sign in":
+        route = "signIn";
+        break;
+      case "sign up":
+        route = "signUp";
+      case "welcome":
+        route = username;
+        break;
+      case "cart":
+        route = username + "/cart";
+        break;
+      case "cart review":
+        route = username + "/cart-review";
+        break;
+      case "cart confirm" || "purchase":
+        route = username + "/cart-confirmed";
+        break;
+
+      default:
+        break;
+    }
+
+    let request = {
+      method: 'PUT',
+      headers: {
+        "Content-Type": "application/json",
+        "x-access-token": token,
+      },
+      body: JSON.stringify({
+        "back": false,
+        "dialogflowUpdated": true,
+        "page": "/" + route,
+      }),
+      redirect: 'follow'
+    }
+    return request
+  }
+
+  async function navigate() {
+    postUserMessage(agent.query)
+    page = agent.parameters.page
+    category = agent.parameters.category
+    product = agent.parameters.Product
+    // page route
+    if (page != "") {
+      let response = await fetch(ENDPOINT_URL + '/application', route(page));
+      if (response.status == 200) {
+        message = "On it. Here is the " + page + " page."
+        agent.add(message)
+        postAgentMessage(message);
+      }
+      else {
+        agent.add(errormessage)
+        postAgentMessage(errormessage);
+      }
+    }
+    // category route
+    else if (category != "") {
+      categoryRoute = username + "/" + category
+      let response = await fetch(ENDPOINT_URL + '/application', route(categoryRoute));
+      if (response.status == 200) {
+        message = "On it. Here is the " + category + " page."
+        agent.add(message)
+        postAgentMessage(message);
+      }
+      else {
+        agent.add(errormessage)
+        postAgentMessage(errormessage);
+      }
+    }
+    // product route
+    else if (product != "") {
+      // get product category
+      await getProduct(product, true)
+      productRoute = username + "/" + productCategory + "/products/" + productId
+      let response = await fetch(ENDPOINT_URL + '/application', route(productRoute));
+      if (response.status == 200) {
+        message = "On it. Here is the " + product + " page."
+        agent.add(message)
+        postAgentMessage(message);
+      }
+      else {
+        agent.add(errormessage)
+        postAgentMessage(errormessage);
+      }
+    }
+    else {
+      agent.add(errormessage)
+      postAgentMessage(errormessage);
+    }
+  }
+
+  async function logout() {
+
+  }
+
+  async function postUserMessage(text) {
+    let request = {
+      method: 'POST',
+      headers: {
+        "Content-Type": "application/json",
+        "x-access-token": token,
+      },
+      body: JSON.stringify({
+        "date": new Date(),
+        "isUser": true,
+        "text": text,
+      }),
+      redirect: 'follow'
+    }
+    let response = await fetch(ENDPOINT_URL + '/application/messages', request);
+    return
+  }
+
+  async function postAgentMessage(text) {
+    let request = {
+      method: 'POST',
+      headers: {
+        "Content-Type": "application/json",
+        "x-access-token": token,
+      },
+      body: JSON.stringify({
+        "date": new Date(),
+        "isUser": false,
+        "text": text,
+      }),
+      redirect: 'follow'
+    }
+    let response = await fetch(ENDPOINT_URL + '/application/messages', request);
+    return
+  }
 
   let intentMap = new Map()
   intentMap.set('Default Welcome Intent', welcome)
@@ -415,6 +624,8 @@ app.post('/', express.json(), (req, res) => {
   intentMap.set('Action_Cart_Add', actionAddCart)
   intentMap.set('Action_Cart_Delete', actionDeleteCart)
   intentMap.set('Action_Cart_Review', actionReview)
+  intentMap.set('Action_Cart_Review - Check Out', checkout)
+  intentMap.set('Navigation', navigate)
   agent.handleRequest(intentMap)
 })
 
