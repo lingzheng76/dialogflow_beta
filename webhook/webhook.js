@@ -166,9 +166,11 @@ app.get('/', (req, res) => res.send('online'))
 app.post('/', express.json(), (req, res) => {
   const agent = new WebhookClient({ request: req, response: res })
 
-  function welcome() {
-    agent.add('Webhook works!')
-    console.log(ENDPOINT_URL)
+  async function welcome() {
+    await postUserMessage(agent.query)
+    message = 'Welcome to WiscShop! How can I assist?'
+    agent.add(message)
+    await postAgentMessage(message)
   }
 
   async function login() {
@@ -176,9 +178,9 @@ app.post('/', express.json(), (req, res) => {
     username = agent.parameters.username
     // You need to set this from password entity that you declare in DialogFlow
     password = agent.parameters.password
+    // clear up history messages upon successful log in
 
     if (await getToken() == 200) {
-      // clear up history messages upon successful log in
       let request = {
         method: 'DELETE',
         headers: {
@@ -188,7 +190,7 @@ app.post('/', express.json(), (req, res) => {
         redirect: 'follow'
       }
       let response = await fetch(ENDPOINT_URL + '/application/messages/', request);
-      message = 'log in success!'
+      message = 'log in success! How can I assist you today?'
       agent.add(message)
       postAgentMessage(message)
     }
@@ -199,6 +201,26 @@ app.post('/', express.json(), (req, res) => {
     }
   }
 
+  async function endConversation(){
+    await postUserMessage(agent.query)
+    message = "Thank you for visiting WiscShop. Please come back in the future!"
+    agent.add(message)
+    await postAgentMessage(message)
+    let request = {
+      method: 'DELETE',
+      headers: {
+        "Content-Type": "application/json",
+        "x-access-token": token,
+      },
+      redirect: 'follow'
+    }
+    let response = await fetch(ENDPOINT_URL + '/application/messages/', request);
+    username = ""
+    password = ""
+    token = ""
+  }
+
+  // test for checking if the user is logged in
   async function checklogin() {
     if (await getToken() == 200) {
       agent.add('log in success')
@@ -209,7 +231,7 @@ app.post('/', express.json(), (req, res) => {
   }
 
   async function queryCategory() {
-    postUserMessage(agent.query)
+    await postUserMessage(agent.query)
     await getCategory()
     // make all categories into a string
     categoryName = ""
@@ -222,7 +244,7 @@ app.post('/', express.json(), (req, res) => {
   }
 
   async function queryTag() {
-    postUserMessage(agent.query)
+    await postUserMessage(agent.query)
     category = agent.parameters.category
     if (await getCategoryTag(category) == 200) {
       tagName = ""
@@ -242,7 +264,7 @@ app.post('/', express.json(), (req, res) => {
   }
 
   async function queryCart() {
-    postUserMessage(agent.query)
+    await postUserMessage(agent.query)
     await getCart()
     if (cart.products.length == 0) {
       message = "Your cart is empty now."
@@ -289,7 +311,7 @@ app.post('/', express.json(), (req, res) => {
   }
 
   async function queryProduct() {
-    postUserMessage(agent.query)
+    await postUserMessage(agent.query)
     product = agent.parameters.Product
     if (await getProduct(product, true) != null) {
       await getProductInfo();
@@ -309,7 +331,7 @@ app.post('/', express.json(), (req, res) => {
   }
 
   async function queryReview() {
-    postUserMessage(agent.query)
+    await postUserMessage(agent.query)
     await getReview()
     if (review.reviews.length == 0) {
       message = "Unfortunately, this product currently has no review."
@@ -346,7 +368,7 @@ app.post('/', express.json(), (req, res) => {
   }
 
   async function actionTag() {
-    postUserMessage(agent.query)
+    await postUserMessage(agent.query)
     tag = agent.parameters.tag
     await filterByTag(tag)
     message = "Ok! Here are the products that have the tag " + tag
@@ -390,7 +412,7 @@ app.post('/', express.json(), (req, res) => {
   }
 
   async function actionAddCart() {
-    postUserMessage(agent.query)
+    await postUserMessage(agent.query)
     quantity = agent.parameters.quantity
     product = agent.parameters.Product
     await addProduct(quantity, product)
@@ -429,13 +451,13 @@ app.post('/', express.json(), (req, res) => {
   }
 
   async function actionDeleteCart() {
-    postUserMessage(agent.query)
+    await postUserMessage(agent.query)
     product = agent.parameters.Product
     await deleteProduct(product)
   }
 
   async function actionClearCart() {
-    postUserMessage(agent.query)
+    await postUserMessage(agent.query)
     let request = {
       method: 'DELETE',
       headers: {
@@ -451,7 +473,7 @@ app.post('/', express.json(), (req, res) => {
   }
 
   async function actionReview() {
-    postUserMessage(agent.query)
+    await postUserMessage(agent.query)
     let request = {
       method: 'PUT',
       headers: {
@@ -478,7 +500,7 @@ app.post('/', express.json(), (req, res) => {
   }
 
   async function checkout() {
-    postUserMessage(agent.query)
+    await postUserMessage(agent.query)
     let request = {
       method: 'PUT',
       headers: {
@@ -545,7 +567,7 @@ app.post('/', express.json(), (req, res) => {
   }
 
   async function navigate() {
-    postUserMessage(agent.query)
+    await postUserMessage(agent.query)
     page = agent.parameters.page
     category = agent.parameters.category
     product = agent.parameters.Product
@@ -596,19 +618,6 @@ app.post('/', express.json(), (req, res) => {
       agent.add(errormessage)
       postAgentMessage(errormessage);
     }
-  }
-
-  async function logout() {
-    postUserMessage(agent.query)
-    let request = {
-      method: 'DELETE',
-      headers: {
-        "Content-Type": "application/json",
-        "x-access-token": token,
-      },
-      redirect: 'follow'
-    }
-    let response = await fetch(ENDPOINT_URL + '/application/messages/', request);
   }
 
   async function postUserMessage(text) {
@@ -664,6 +673,7 @@ app.post('/', express.json(), (req, res) => {
   intentMap.set('Action_Cart_Review - Check Out', checkout)
   intentMap.set('Navigation', navigate)
   intentMap.set('Action_Cart_Clear', actionClearCart)
+  intentMap.set('End_Conversation', endConversation)
   agent.handleRequest(intentMap)
 })
 
