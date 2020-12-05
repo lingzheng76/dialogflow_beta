@@ -124,7 +124,6 @@ async function getProduct(product, specific) {
     products = result
     return
   }
-
 }
 
 async function getProductInfo() {
@@ -178,12 +177,25 @@ app.post('/', express.json(), (req, res) => {
     // You need to set this from password entity that you declare in DialogFlow
     password = agent.parameters.password
 
-
     if (await getToken() == 200) {
-      agent.add('log in success!')
+      // clear up history messages upon successful log in
+      let request = {
+        method: 'DELETE',
+        headers: {
+          "Content-Type": "application/json",
+          "x-access-token": token,
+        },
+        redirect: 'follow'
+      }
+      let response = await fetch(ENDPOINT_URL + '/application/messages/', request);
+      message = 'log in success!'
+      agent.add(message)
+      postAgentMessage(message)
     }
     else {
-      agent.add('log in failed. Please try to log in again')
+      message = 'log in failed. Please try to log in again'
+      agent.add(message)
+      postAgentMessage(message)
     }
   }
 
@@ -422,6 +434,22 @@ app.post('/', express.json(), (req, res) => {
     await deleteProduct(product)
   }
 
+  async function actionClearCart() {
+    postUserMessage(agent.query)
+    let request = {
+      method: 'DELETE',
+      headers: {
+        "Content-Type": "application/json",
+        "x-access-token": token,
+      },
+      redirect: 'follow'
+    }
+    let response = await fetch(ENDPOINT_URL + '/application/products', request);
+    message = "No problem. Your cart is empty now."
+    agent.add(message)
+    postAgentMessage(message)
+  }
+
   async function actionReview() {
     postUserMessage(agent.query)
     let request = {
@@ -571,7 +599,16 @@ app.post('/', express.json(), (req, res) => {
   }
 
   async function logout() {
-
+    postUserMessage(agent.query)
+    let request = {
+      method: 'DELETE',
+      headers: {
+        "Content-Type": "application/json",
+        "x-access-token": token,
+      },
+      redirect: 'follow'
+    }
+    let response = await fetch(ENDPOINT_URL + '/application/messages/', request);
   }
 
   async function postUserMessage(text) {
@@ -626,6 +663,7 @@ app.post('/', express.json(), (req, res) => {
   intentMap.set('Action_Cart_Review', actionReview)
   intentMap.set('Action_Cart_Review - Check Out', checkout)
   intentMap.set('Navigation', navigate)
+  intentMap.set('Action_Cart_Clear', actionClearCart)
   agent.handleRequest(intentMap)
 })
 
